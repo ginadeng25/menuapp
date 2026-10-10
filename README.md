@@ -13,7 +13,11 @@ api/
   photo.js                 /api/photo?name=...   → 轉址到 Google 照片暫時網址
   check.js                 /api/check            → 檢查金鑰是否可用
                            /api/check?list=1     → 列出每家店比對到的 Google 地點
+  menus.js                 /api/menus?id=店家id  → 列出／上傳／刪除你的菜單照片
+  menu-photo.js            /api/menu-photo?path= → 讀取私人儲存空間裡的照片
   _lib/google.js           共用呼叫邏輯與中文錯誤提示
+  _lib/auth.js             網站密碼檢查
+middleware.js              整站密碼鎖
 test/api.test.js           伺服端函式測試（用假資料，不需金鑰）
 ```
 
@@ -28,6 +32,12 @@ test/api.test.js           伺服端函式測試（用假資料，不需金鑰�
 - Place ID 可以長期保存：確認比對正確後，寫進資料檔的 `placeId` 欄位，之後就直接用 ID 查詢，比較準也比較省。
 - 封面優先順序：店家授權的 `img` → Google 地圖照片 → 直排店名（標示「照片待店家提供」）。
 - 照片在卡片捲到畫面附近時才載入，減少 API 用量。
+
+## 菜單照片上傳與密碼鎖
+
+- Vercel 環境變數 `SITE_PASSWORD`：設定後整個網站需要密碼才能打開（帳號隨意填），也只有通過密碼的人能上傳、刪除。沒設定時網站公開，上傳功能停用。
+- 照片存在 Vercel Blob（Private 類型），沒有公開網址，只能經由 `/api/menu-photo` 在密碼鎖之後看到。連接 Blob 後 Vercel 會自動加上 `BLOB_READ_WRITE_TOKEN`。
+- 瀏覽器會先把照片縮到最長邊 2400px 的 JPG 再上傳（單張上限 4MB）。
 
 ## 統一資料格式
 
@@ -51,7 +61,6 @@ test/api.test.js           伺服端函式測試（用假資料，不需金鑰�
 npm test
 ```
 
-## 尚未決定（做到前要先確認）
+## 使用範圍
 
-- 誰可以上傳／修改菜單：公開、密碼或審核制
-- 小範圍使用，還是正式對外上線
+目前為個人使用：整站密碼鎖，只有站主能上傳。若之後要對外開放，需重新決定上傳權限（公開、帳號或審核制），並處理照片授權。
