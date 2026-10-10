@@ -222,6 +222,14 @@ dialog::backdrop { background: var(--veil); }
 }
 .v-cap a { color: inherit; }
 .v-hint { color: #a9a293; }
+.v-del { margin-right: 18px; color: #e3a99a !important; }
+.upload { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; }
+.upload-btn {
+  padding: 9px 18px; border: 1px solid var(--ink); background: none; cursor: pointer;
+  font-size: 14px; letter-spacing: .12em; color: var(--ink);
+}
+.upload-btn:disabled { opacity: .45; cursor: default; }
+.upload-msg { font-size: 13px; color: var(--ink-2); }
 section.s { scroll-margin-top: 56px; padding: 26px 0 4px; border-top: 1px solid var(--rule); margin-top: 26px; }
 .s h3 { margin: 0 0 14px; font: 600 15px/1.5 var(--serif); letter-spacing: .3em; color: var(--ink-2); }
 .plans { margin: 0; padding: 0; list-style: none; }
@@ -278,7 +286,7 @@ dl.info dd { margin: 0; }
 
 <dialog id="viewer" aria-label="照片檢視">
   <div class="v-stage" id="v-stage"><img id="v-img" alt=""></div>
-  <div class="v-top"><span id="v-count"></span><button type="button" id="v-close">關閉 ✕</button></div>
+  <div class="v-top"><span id="v-count"></span><span><button type="button" class="v-del" id="v-del" hidden>刪除這張</button><button type="button" id="v-close">關閉 ✕</button></span></div>
   <button type="button" class="v-nav v-prev" id="v-prev" aria-label="上一張">‹</button>
   <button type="button" class="v-nav v-next" id="v-next" aria-label="下一張">›</button>
   <p class="v-cap" id="v-cap"></p>
@@ -433,7 +441,8 @@ dl.info dd { margin: 0; }
   function openDetail(id, focus) {
     const s = shops.find((x) => x.id === id);
     if (!s) return;
-    dPhotos = [];
+    sets = { g: [], m: [] };
+    current = s;
     const tier = tierOf(state.tier);
     const plans = s.plans.length
       ? `<ul class="plans">${s.plans.map((p) => `<li class="plan${tier && !planFits(p, tier) ? ' dim' : ''}">
@@ -459,7 +468,8 @@ dl.info dd { margin: 0; }
       <section class="s" id="d-menu"><h3>套餐方案</h3>${plans}
         <p class="svc">服務費：${esc(s.svc || '待補')}</p></section>
       <section class="s"><h3>店家菜單照片</h3>
-        ${s.menuImg ? `<img class="menu-img" src="${esc(s.menuImg)}" alt="${esc(s.name)} 菜單" loading="lazy">` : '<p class="muted">店家授權的菜單照片待提供。</p>'}
+        ${s.menuImg ? `<img class="menu-img" src="${esc(s.menuImg)}" alt="${esc(s.name)} 菜單" loading="lazy">` : ''}
+        <div id="d-mine"><p class="muted">載入中…</p></div>
         <div id="d-gphotos"></div></section>
       <section class="s"><h3>店家資訊</h3>
         <dl class="info">${info.map(([k, v, raw]) => `<dt>${k}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>
@@ -481,27 +491,30 @@ dl.info dd { margin: 0; }
         const pr = `NT$ ${money(g.priceRange.start)}${g.priceRange.end ? ` – ${money(g.priceRange.end)}` : ' 以上'}／人`;
         $('#d-menu .svc').insertAdjacentHTML('afterend', `<p class="svc">Google 地圖標示價位：${pr}</p>`);
       }
-      dPhotos = g.photos;
+      sets.g = g.photos.map((p) => ({ thumb: photoSrc(p, 500), full: photoSrc(p, 1600), caption: authorsHtml(p) }));
       const p0 = g.photos[0];
       if (p0) {
-        $('#d-gallery').innerHTML = `<figure class="hero"><div class="frame zoomable" data-i="0"><img src="${photoSrc(p0, 1200)}" alt="${esc(s.name)}（Google 地圖照片）"></div>
+        $('#d-gallery').innerHTML = `<figure class="hero"><div class="frame zoomable" data-set="g" data-i="0"><img src="${photoSrc(p0, 1200)}" alt="${esc(s.name)}（Google 地圖照片）"></div>
           <figcaption>${authorsHtml(p0)}</figcaption></figure>`;
       }
       $('#d-gphotos').innerHTML = `
         ${g.photos.length ? `<h4>Google 地圖上的照片（可能含菜單）</h4>
         <div class="gphotos">${g.photos.map((p, i) => `<figure>
-          <a class="frame zoomable" data-i="${i}" href="${photoSrc(p, 1600)}"><img src="${photoSrc(p, 500)}" alt="${esc(s.name)} 照片 ${i + 1}，點擊放大" loading="lazy"></a>
+          <a class="frame zoomable" data-set="g" data-i="${i}" href="${photoSrc(p, 1600)}"><img src="${photoSrc(p, 500)}" alt="${esc(s.name)} 照片 ${i + 1}，點擊放大" loading="lazy"></a>
           <figcaption>${authorsHtml(p)}</figcaption></figure>`).join('')}</div>
         <p class="g-note">照片由 Google 地圖使用者提供，Google 未標示哪些是菜單，點照片可放大。${where}</p>` : ''}
         ${g.website ? `<a class="web" href="${esc(g.website)}" target="_blank" rel="noopener">店家官網（菜單常公布於此）</a>` : ''}`;
       toMenu();
     });
+    loadMine(s);
   }
   function closeDetail() { closeViewer(); if (dlg.open) dlg.close(); }
 
   /* ---------- 照片檢視：點照片在頁面內放大，不跳出網站 ---------- */
-  let dPhotos = [];
+  let sets = { g: [], m: [] };
+  let current = null;
   let vPhotos = [];
+  let vSet = '';
   let vIdx = 0;
   const viewer = $('#viewer');
   const vStage = $('#v-stage');
@@ -512,17 +525,20 @@ dl.info dd { margin: 0; }
     const p = vPhotos[idx];
     vStage.classList.remove('zoomed');
     vStage.scrollTo(0, 0);
-    vImg.src = photoSrc(p, 500); // 先顯示已載入的小圖，大圖好了再換上
+    vImg.src = p.thumb; // 先顯示已載入的小圖，大圖好了再換上
     vImg.alt = `照片 ${idx + 1}`;
     const big = new Image();
     big.onload = () => { if (vIdx === idx && viewer.open) vImg.src = big.src; };
-    big.src = photoSrc(p, 1600);
+    big.src = p.full;
+    $('#v-del').hidden = !p.path;
     $('#v-count').textContent = vPhotos.length > 1 ? `${idx + 1} / ${vPhotos.length}` : '';
-    $('#v-cap').innerHTML = `${authorsHtml(p)}<br><span class="v-hint">點照片可再放大${vPhotos.length > 1 ? '，左右滑動換張' : ''}</span>`;
+    $('#v-cap').innerHTML = `${p.caption}<br><span class="v-hint">點照片可再放大${vPhotos.length > 1 ? '，左右滑動換張' : ''}</span>`;
     $('#v-prev').hidden = $('#v-next').hidden = vPhotos.length < 2;
   }
-  function openViewer(photos, i) {
+  function openViewer(set, i) {
+    const photos = sets[set] || [];
     if (!photos.length) return;
+    vSet = set;
     vPhotos = photos;
     showPhoto(i);
     viewer.showModal();
@@ -534,6 +550,91 @@ dl.info dd { margin: 0; }
     if (zoom) requestAnimationFrame(() => vStage.scrollTo((vStage.scrollWidth - vStage.clientWidth) / 2, 0));
   });
   $('#v-close').addEventListener('click', closeViewer);
+  $('#v-del').addEventListener('click', async () => {
+    const p = vPhotos[vIdx];
+    if (!p || !p.path || !confirm('確定要刪除這張菜單照片嗎？刪除後無法復原。')) return;
+    const r = await fetch(`/api/menus?id=${encodeURIComponent(current.id)}&path=${encodeURIComponent(p.path)}`, { method: 'DELETE' });
+    if (!r.ok) return alert(((await r.json().catch(() => ({}))).hint) || '刪除失敗，請稍後再試。');
+    closeViewer();
+    loadMine(current);
+  });
+
+  /* ---------- 你上傳的菜單照片（存在私人儲存空間，需要網站密碼才能新增或刪除） ---------- */
+  const mineSrc = (path) => `/api/menu-photo?path=${encodeURIComponent(path)}`;
+  const fmtDate = (d) => new Date(d).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
+  async function loadMine(s) {
+    const box = $('#d-mine');
+    let d = null;
+    try {
+      const r = await fetch(`/api/menus?id=${encodeURIComponent(s.id)}`, { cache: 'no-store' });
+      d = r.ok ? await r.json() : null;
+    } catch { /* 靜態預覽時沒有 API */ }
+    if (!dlg.open || current !== s || !box.isConnected) return;
+    if (!d) { box.innerHTML = s.menuImg ? '' : '<p class="muted">菜單照片待提供。</p>'; return; }
+    sets.m = d.photos.map((p) => ({ thumb: mineSrc(p.path), full: mineSrc(p.path), caption: `菜單照片・${fmtDate(p.uploadedAt)} 上傳`, path: d.canEdit ? p.path : '' }));
+    const grid = sets.m.length
+      ? `<div class="gphotos">${sets.m.map((p, i) => `<figure>
+          <a class="frame zoomable" data-set="m" data-i="${i}" href="${p.full}"><img src="${p.thumb}" alt="${esc(s.name)} 菜單照片 ${i + 1}，點擊放大" loading="lazy"></a>
+          <figcaption>${fmtDate(d.photos[i].uploadedAt)}</figcaption></figure>`).join('')}</div>`
+      : (s.menuImg ? '' : '<p class="muted">還沒有菜單照片。</p>');
+    let tools = '';
+    if (!d.storage) tools = '<p class="g-note">尚未連接照片儲存空間（Vercel Blob），連接後就能上傳菜單照片。</p>';
+    else if (!d.locked) tools = '<p class="g-note">設定網站密碼（SITE_PASSWORD）後，就能在這裡上傳菜單照片。</p>';
+    else if (d.canEdit) tools = `<div class="upload">
+        <button type="button" class="upload-btn" id="up-btn">＋ 新增菜單照片</button>
+        <input type="file" id="up-file" accept="image/*" multiple hidden>
+        <span class="upload-msg" id="up-msg" aria-live="polite"></span></div>`;
+    box.innerHTML = grid + tools;
+    const btn = $('#up-btn');
+    if (btn) {
+      btn.addEventListener('click', () => $('#up-file').click());
+      $('#up-file').addEventListener('change', (e) => uploadFiles(s, [...e.target.files]));
+    }
+  }
+
+  // 先在瀏覽器把照片縮到最長邊 2400px 的 JPG，菜單文字仍清楚，上傳也快。
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * scale);
+        c.height = Math.round(img.naturalHeight * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        const tryQ = (q) => c.toBlob((b) => (b && b.size > 3.8 * 1024 * 1024 && q > 0.5 ? tryQ(q - 0.15) : b ? resolve(b) : reject(new Error('轉檔失敗'))), 'image/jpeg', q);
+        tryQ(0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('無法讀取這張照片')); };
+      img.src = url;
+    });
+  }
+  async function uploadFiles(s, files) {
+    files = files.filter((f) => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    if (!files.length) return;
+    const btn = $('#up-btn');
+    const msg = $('#up-msg');
+    btn.disabled = true;
+    let ok = 0;
+    let lastErr = '';
+    for (const [i, f] of files.entries()) {
+      msg.textContent = `上傳中 ${i + 1} / ${files.length}…`;
+      try {
+        const body = await shrink(f);
+        const r = await fetch(`/api/menus?id=${encodeURIComponent(s.id)}`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))).hint) || `上傳失敗（${r.status}）`);
+        ok++;
+      } catch (err) {
+        lastErr = err.message;
+      }
+    }
+    if (current !== s || !dlg.open) return;
+    await loadMine(s);
+    const m = $('#up-msg');
+    if (m) m.textContent = ok === files.length ? `已上傳 ${ok} 張。` : `已上傳 ${ok} 張，${files.length - ok} 張失敗：${lastErr}`;
+  }
   $('#v-prev').addEventListener('click', () => showPhoto(vIdx - 1));
   $('#v-next').addEventListener('click', () => showPhoto(vIdx + 1));
   viewer.addEventListener('keydown', (e) => {
@@ -555,7 +656,7 @@ dl.info dd { margin: 0; }
     const z = e.target.closest('.zoomable');
     if (!z) return;
     e.preventDefault();
-    openViewer(dPhotos, Number(z.dataset.i) || 0);
+    openViewer(z.dataset.set, Number(z.dataset.i) || 0);
   });
   dlg.addEventListener('close', () => { if (location.hash) history.replaceState(null, '', location.pathname + location.search); });
   dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDetail(); });

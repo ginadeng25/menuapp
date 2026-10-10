@@ -2,8 +2,14 @@
   "name": "menuapp",
   "private": true,
   "description": "雙北高級日料菜單：手機版餐廳菜單瀏覽網站",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "test": "node test/api.test.js"
+    "test": "node test/api.test.js && node test/menus.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.1",
+    "@vercel/functions": "^3.9.11"
   }
 }
