@@ -24,6 +24,7 @@ const menus = require('../api/menus');
 const menuPhoto = require('../api/menu-photo');
 
 const basic = (pw) => `Basic ${Buffer.from(`me:${pw}`).toString('base64')}`;
+const up = (pw) => ({ 'x-upload-password': encodeURIComponent(pw) });
 function req({ method = 'GET', query = {}, headers = {}, body }) {
   const r = Readable.from(body ? [body] : []);
   return Object.assign(r, { method, query, headers });
@@ -52,35 +53,44 @@ async function run(fn, opts) {
 (async () => {
   process.env.BLOB_READ_WRITE_TOKEN = 'fake';
   delete process.env.SITE_PASSWORD;
+  delete process.env.UPLOAD_PASSWORD;
   const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
 
-  // 沒設網站密碼：可以看，但不能上傳
+  // 沒設上傳密碼：可以看，但不能上傳
   let r = await run(menus, { query: { id: 'mizue' } });
-  assert.deepEqual(r.json(), { photos: [], canEdit: false, storage: true, locked: false });
+  assert.deepEqual(r.json(), { photos: [], storage: true, uploadEnabled: false });
   r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg' }, body: jpg });
   assert.equal(r.statusCode, 403);
 
-  process.env.SITE_PASSWORD = 'sushi123';
+  process.env.UPLOAD_PASSWORD = 'sushi123';
+  // 網站密碼鎖未啟用，也不影響上傳密碼
   // 密碼錯誤或沒帶密碼 → 401
-  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', authorization: basic('wrong') }, body: jpg });
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', ...up('wrong') }, body: jpg });
   assert.equal(r.statusCode, 401);
   // 不存在的店 → 404
-  r = await run(menus, { method: 'POST', query: { id: 'nope' }, headers: { authorization: basic('sushi123') }, body: jpg });
+  r = await run(menus, { method: 'POST', query: { id: 'nope' }, headers: { ...up('sushi123') }, body: jpg });
   assert.equal(r.statusCode, 404);
   // 非圖片 → 415
-  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'text/html', authorization: basic('sushi123') }, body: jpg });
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'text/html', ...up('sushi123') }, body: jpg });
   assert.equal(r.statusCode, 415);
   // 太大 → 413
-  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', authorization: basic('sushi123') }, body: Buffer.alloc(4 * 1024 * 1024 + 1) });
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', ...up('sushi123') }, body: Buffer.alloc(4 * 1024 * 1024 + 1) });
   assert.equal(r.statusCode, 413);
 
+  // 中文密碼也可以
+  process.env.UPLOAD_PASSWORD = '壽司';
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', ...up('壽司') }, body: jpg });
+  assert.equal(r.statusCode, 201);
+  store.clear();
+  process.env.UPLOAD_PASSWORD = 'sushi123';
+
   // 正確密碼 → 上傳成功、列得出來、讀得到內容
-  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', authorization: basic('sushi123') }, body: jpg });
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg', ...up('sushi123') }, body: jpg });
   assert.equal(r.statusCode, 201);
   const path = r.json().path;
   assert.match(path, /^menus\/mizue\/\d+-rand\.jpg$/);
-  r = await run(menus, { query: { id: 'mizue' }, headers: { authorization: basic('sushi123') } });
-  assert.equal(r.json().canEdit, true);
+  r = await run(menus, { query: { id: 'mizue' }, headers: { ...up('sushi123') } });
+  assert.equal(r.json().uploadEnabled, true);
   assert.equal(r.json().photos[0].path, path);
   r = await run(menus, { query: { id: 'blu-koi' } });
   assert.equal(r.json().photos.length, 0, '其他店不應看到這張');
@@ -91,13 +101,14 @@ async function run(fn, opts) {
   assert.equal((await run(menuPhoto, { query: { path: '../secret' } })).statusCode, 400);
 
   // 刪除：不能刪別家店的路徑；正確的可以刪
-  r = await run(menus, { method: 'DELETE', query: { id: 'blu-koi', path }, headers: { authorization: basic('sushi123') } });
+  r = await run(menus, { method: 'DELETE', query: { id: 'blu-koi', path }, headers: { ...up('sushi123') } });
   assert.equal(r.statusCode, 400);
-  r = await run(menus, { method: 'DELETE', query: { id: 'mizue', path }, headers: { authorization: basic('sushi123') } });
+  r = await run(menus, { method: 'DELETE', query: { id: 'mizue', path }, headers: { ...up('sushi123') } });
   assert.equal(r.statusCode, 200);
   assert.equal(store.size, 0);
 
-  // 整站密碼鎖
+  // 整站密碼鎖（設定 SITE_PASSWORD 才啟用）
+  process.env.SITE_PASSWORD = 'sushi123';
   const { default: middleware } = await import('../middleware.js');
   const mw = (auth) => middleware(new Request('https://x/', { headers: auth ? { authorization: auth } : {} }));
   assert.equal(mw().status, 401);

@@ -1,24 +1,23 @@
-// 網站密碼：存在 Vercel 環境變數 SITE_PASSWORD。整站密碼鎖（middleware.js）與上傳／刪除都用它。
+// 上傳密碼：存在 Vercel 環境變數 UPLOAD_PASSWORD。只有上傳、刪除菜單照片時需要，瀏覽網站不用。
+// （整站密碼鎖是另一個獨立的 SITE_PASSWORD，見 middleware.js，目前未啟用。）
 const crypto = require('node:crypto');
 
-function sitePassword() {
-  return (process.env.SITE_PASSWORD || '').trim();
-}
-
-// 瀏覽器通過密碼鎖後，會在每個請求自動帶上 Authorization: Basic <帳號:密碼>。帳號不限，只比對密碼。
-function passwordFrom(req) {
-  const h = String(req.headers.authorization || '');
-  if (!h.startsWith('Basic ')) return '';
-  const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8');
-  return decoded.slice(decoded.indexOf(':') + 1);
+function uploadPassword() {
+  return (process.env.UPLOAD_PASSWORD || '').trim();
 }
 
 function isOwner(req) {
-  const expected = sitePassword();
+  const expected = uploadPassword();
   if (!expected) return false; // 沒設定密碼時一律不允許修改
-  const a = Buffer.from(passwordFrom(req));
+  let given = '';
+  try {
+    given = decodeURIComponent(String(req.headers['x-upload-password'] || '')); // 前端會編碼，讓中文密碼也能用
+  } catch {
+    return false;
+  }
+  const a = Buffer.from(given);
   const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-module.exports = { sitePassword, isOwner };
+module.exports = { uploadPassword, isOwner };

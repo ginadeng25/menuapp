@@ -1,10 +1,10 @@
 // 你上傳的菜單照片，存在 Vercel Blob（私人儲存空間，不公開）。
 // GET    /api/menus?id=店家id              → 列出這家店的菜單照片
-// POST   /api/menus?id=店家id   (圖片內容) → 上傳一張（需要網站密碼）
-// DELETE /api/menus?id=店家id&path=...      → 刪除一張（需要網站密碼）
+// POST   /api/menus?id=店家id   (圖片內容) → 上傳一張（需要上傳密碼）
+// DELETE /api/menus?id=店家id&path=...      → 刪除一張（需要上傳密碼）
 const { list, put, del } = require('@vercel/blob');
 const { restaurants } = require('../public/data/restaurants.json');
-const { isOwner, sitePassword } = require('./_lib/auth');
+const { isOwner, uploadPassword } = require('./_lib/auth');
 
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel 函式單次上限約 4.5MB；瀏覽器會先壓縮到這以下
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -38,21 +38,21 @@ module.exports = async (req, res) => {
   const id = String(req.query.id || '');
   if (!restaurants.some((r) => r.id === id)) return send(res, 404, { error: 'unknown_restaurant' });
   const prefix = `menus/${id}/`;
-  const canEdit = isOwner(req);
+  const uploadEnabled = Boolean(uploadPassword());
 
   try {
     if (req.method === 'GET') {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) return send(res, 200, { photos: [], canEdit, storage: false, locked: Boolean(sitePassword()) });
+      if (!process.env.BLOB_READ_WRITE_TOKEN) return send(res, 200, { photos: [], storage: false, uploadEnabled });
       const { blobs } = await list({ prefix, limit: 100 });
       const photos = blobs
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
         .map((b) => ({ path: b.pathname, uploadedAt: b.uploadedAt }));
-      return send(res, 200, { photos, canEdit, storage: true, locked: Boolean(sitePassword()) });
+      return send(res, 200, { photos, storage: true, uploadEnabled });
     }
 
     if (req.method === 'POST' || req.method === 'DELETE') {
-      if (!sitePassword()) return send(res, 403, { error: 'no_password', hint: '請先在 Vercel 設定環境變數 SITE_PASSWORD（網站密碼），設定後才能上傳。' });
-      if (!canEdit) return send(res, 401, { error: 'unauthorized', hint: '密碼不正確，請重新整理網頁再輸入一次。' });
+      if (!uploadEnabled) return send(res, 403, { error: 'no_password', hint: '請先在 Vercel 設定環境變數 UPLOAD_PASSWORD（上傳密碼），設定後才能上傳。' });
+      if (!isOwner(req)) return send(res, 401, { error: 'unauthorized', hint: '上傳密碼不正確。' });
     }
 
     if (req.method === 'POST') {
