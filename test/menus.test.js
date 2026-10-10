@@ -51,6 +51,12 @@ async function run(fn, opts) {
 }
 
 (async () => {
+  // 新式連接只有 BLOB_STORE_ID 也要認得儲存空間
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+  process.env.BLOB_STORE_ID = 'store_fake';
+  assert.equal((await run(menus, { query: { id: 'mizue' } })).json().storage, true);
+  delete process.env.BLOB_STORE_ID;
+  assert.equal((await run(menus, { query: { id: 'mizue' } })).json().storage, false);
   process.env.BLOB_READ_WRITE_TOKEN = 'fake';
   delete process.env.SITE_PASSWORD;
   delete process.env.UPLOAD_PASSWORD;

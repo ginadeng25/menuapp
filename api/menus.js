@@ -9,6 +9,9 @@ const { isOwner, uploadPassword } = require('./_lib/auth');
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel 函式單次上限約 4.5MB；瀏覽器會先壓縮到這以下
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
+// 連接 Blob 後，Vercel 會加上 BLOB_READ_WRITE_TOKEN（舊式）或 BLOB_STORE_ID（新式，搭配自動提供的 OIDC 憑證）。
+const hasStorage = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+
 function send(res, status, data) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -29,7 +32,7 @@ async function readBody(req, limit) {
 
 function storageHint(err) {
   const m = String(err && err.message);
-  if (/token|BLOB_READ_WRITE_TOKEN/i.test(m)) return '還沒連接 Vercel Blob 儲存空間：到 Vercel 專案的 Storage 建立 Blob（選 Private）並連接到這個專案，再重新部署。';
+  if (/credentials|token|BLOB_READ_WRITE_TOKEN|BLOB_STORE_ID/i.test(m)) return '還沒連接 Vercel Blob 儲存空間：到 Vercel 專案的 Storage 建立 Blob（選 Private）並連接到這個專案，再重新部署。';
   if (/access|public|private/i.test(m)) return 'Blob 儲存空間的存取類型不符：請建立「Private」類型的 Blob 儲存空間。';
   return '';
 }
@@ -42,7 +45,7 @@ module.exports = async (req, res) => {
 
   try {
     if (req.method === 'GET') {
-      if (!process.env.BLOB_READ_WRITE_TOKEN) return send(res, 200, { photos: [], storage: false, uploadEnabled });
+      if (!hasStorage()) return send(res, 200, { photos: [], storage: false, uploadEnabled });
       const { blobs } = await list({ prefix, limit: 100 });
       const photos = blobs
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
