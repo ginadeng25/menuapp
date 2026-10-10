@@ -41,7 +41,7 @@ function mockFetch(handler) {
   assert.equal((await run(place, { id: 'evil query' })).statusCode, 404);
   assert.equal(calls.length, 0);
 
-  // 以店名＋地址搜尋，回傳照片與拍攝者
+  // 沒有 Place ID 的店：以店名＋地區搜尋，回傳照片與拍攝者
   mockFetch((url, opts) => [200, {
     places: [{
       id: 'PID1', displayName: { text: 'Mizue' }, formattedAddress: '台北市松山區',
@@ -49,7 +49,7 @@ function mockFetch(handler) {
       photos: [{ name: 'places/PID1/photos/PH1', widthPx: 800, heightPx: 600, authorAttributions: [{ displayName: '王小明', uri: 'https://maps.google.com/u/1' }] }],
     }],
   }]);
-  let res = await run(place, { id: 'mizue' });
+  let res = await run(place, { id: 'iku-kappo' });
   assert.equal(res.statusCode, 200);
   const d = res.json();
   assert.equal(d.placeId, 'PID1');
@@ -57,7 +57,8 @@ function mockFetch(handler) {
   const c = calls.at(-1);
   assert.match(c.url, /places:searchText/);
   assert.equal(c.opts.headers['X-Goog-Api-Key'], 'test-key');
-  assert.match(JSON.parse(c.opts.body).textQuery, /Mizue .*敦化北路139號/);
+  assert.equal(JSON.parse(c.opts.body).textQuery, '彧割烹 台北');
+  assert.equal(d.pinned, false);
   assert.ok(!res.body.includes('test-key'), '金鑰不可出現在回應中');
 
   // 卡片只要 1 張照片、不查官網；點開店家（detail=1）才查官網與價位，最多 10 張
@@ -68,11 +69,18 @@ function mockFetch(handler) {
     priceRange: { startPrice: { currencyCode: 'TWD', units: '8000' } },
     photos: Array.from({ length: 12 }, (_, i) => ({ name: `places/PID1/photos/P${i}` })),
   }] }]);
-  const full = (await run(place, { id: 'mizue', detail: '1' })).json();
+  const full = (await run(place, { id: 'iku-kappo', detail: '1' })).json();
   assert.equal(full.photos.length, 10);
   assert.equal(full.website, 'https://mizue.example');
   assert.deepEqual(full.priceRange, { start: 8000, end: null });
   assert.match(calls.at(-1).opts.headers['X-Goog-FieldMask'], /places\.websiteUri,places\.priceRange/);
+
+  // 已確認 Place ID 的店：直接用 ID 查詢，不做文字搜尋
+  mockFetch(() => [200, { id: 'ChIJx95cNBOrQjQR9jSgOigHTUw', displayName: { text: 'Mizue' }, photos: [] }]);
+  const pinned = (await run(place, { id: 'mizue' })).json();
+  assert.equal(pinned.pinned, true);
+  assert.match(calls.at(-1).url, /\/places\/ChIJx95cNBOrQjQR9jSgOigHTUw\?/);
+  assert.equal(calls.at(-1).opts.method, 'GET');
 
   // Google 錯誤 → 502 並附中文提示
   mockFetch(() => [403, { error: { status: 'PERMISSION_DENIED', message: 'Places API (New) has not been used in project 123 before or it is disabled.' } }]);

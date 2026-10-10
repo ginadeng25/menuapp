@@ -443,7 +443,7 @@ dl.info dd { margin: 0; }
           </li>`).join('')}</ul>`
       : '<p class="muted">價格待補。</p>';
     const info = [
-      ['地址', s.addr || '待補'],
+      ['地址', `<span id="d-addr">${esc(s.addr || '待補')}</span>`, true],
       ['時間', s.hours || '待補'],
       ['電話', s.tel ? `<a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}">${esc(s.tel)}</a>` : '待補', true],
       ['資料來源', `${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.src)}</a>` : esc(s.src || '待補')}${s.date ? `（${esc(s.date)}）` : ''}${s.url ? '' : '<br><span class="muted">原文連結待補</span>'}`, true],
@@ -475,6 +475,7 @@ dl.info dd { margin: 0; }
     loadPlace(s.id, true).then((g) => {
       if (!g || !dlg.open || $('#d-title').textContent !== s.name) return;
       $('#d-maps').href = mapsUrl(s, g);
+      if (!s.addr && g.matchedAddress) $('#d-addr').innerHTML = `${esc(g.matchedAddress)}<br><span class="muted">取自 Google 地圖${g.pinned ? '' : '，自動比對待確認'}</span>`;
       const where = `對應地點：${esc(g.matchedName)}${g.pinned ? '' : '（自動比對，待確認）'}`;
       if (g.priceRange && g.priceRange.start) {
         const pr = `NT$ ${money(g.priceRange.start)}${g.priceRange.end ? ` – ${money(g.priceRange.end)}` : ' 以上'}／人`;
