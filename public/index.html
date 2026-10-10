@@ -125,7 +125,14 @@ h1 {
 }
 .credit a { color: inherit; }
 .meta { margin: 16px 0 2px; font-size: 12px; letter-spacing: .15em; color: var(--hinoki); }
+.title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 18px; }
 .card h2 { margin: 0; font: 600 22px/1.45 var(--serif); letter-spacing: .06em; }
+.menu-link {
+  position: relative; z-index: 2; flex: none; padding: 2px 0; border: 0; background: none; cursor: pointer;
+  border-bottom: 1px solid currentColor; color: var(--ai); font-size: 13px; letter-spacing: .15em; white-space: nowrap;
+}
+.menu-link::after { content: " →"; color: var(--hinoki); }
+.menu-link:focus-visible { outline: 1px solid var(--ai); outline-offset: 3px; }
 .open {
   padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
   font: inherit; letter-spacing: inherit;
@@ -166,7 +173,7 @@ dialog::backdrop { background: var(--veil); }
 .gallery figcaption { margin-top: 4px; font-size: 11px; color: var(--ink-3); }
 .gallery figcaption a { color: inherit; }
 .g-note { margin: 8px 0 0; font-size: 11px; color: var(--ink-3); }
-section.s { padding: 26px 0 4px; border-top: 1px solid var(--rule); margin-top: 26px; }
+section.s { scroll-margin-top: 56px; padding: 26px 0 4px; border-top: 1px solid var(--rule); margin-top: 26px; }
 .s h3 { margin: 0 0 14px; font: 600 15px/1.5 var(--serif); letter-spacing: .3em; color: var(--ink-2); }
 .plans { margin: 0; padding: 0; list-style: none; }
 .plan { display: grid; grid-template-columns: 1fr auto; gap: 0 16px; padding: 12px 0; border-bottom: 1px dotted var(--rule); transition: opacity .2s; }
@@ -346,7 +353,10 @@ dl.info dd { margin: 0; }
     return `<li class="card">
       <div class="cover" data-id="${esc(s.id)}">${cover}</div>
       <p class="meta">${esc(s.type)}　${esc(place(s))}</p>
-      <h2><button type="button" class="open" data-id="${esc(s.id)}">${esc(s.name)}</button></h2>
+      <div class="title">
+        <h2><button type="button" class="open" data-id="${esc(s.id)}">${esc(s.name)}</button></h2>
+        <button type="button" class="menu-link" data-id="${esc(s.id)}" aria-label="看 ${esc(s.name)} 的菜單">看菜單</button>
+      </div>
       <p class="price">${priceRange(s) ? `${priceRange(s)} <small>／人・未含服務費</small>` : '<small>價格待補</small>'}</p>
       ${s.award ? `<p class="award">${esc(s.award)}</p>` : ''}
       ${fit.length ? `<p class="match">符合：${fit.map((p) => `${esc(p.n)} ${planPrice(p)}`).join('、')}</p>` : ''}
@@ -362,7 +372,7 @@ dl.info dd { margin: 0; }
 
   /* ---------- 詳細頁 ---------- */
   const dlg = $('#detail');
-  function openDetail(id) {
+  function openDetail(id, focus) {
     const s = shops.find((x) => x.id === id);
     if (!s) return;
     const tier = tierOf(state.tier);
@@ -387,7 +397,7 @@ dl.info dd { margin: 0; }
         <p class="pending">資料待店家確認</p>
       </div>
       <div id="d-gallery"></div>
-      <section class="s"><h3>套餐方案</h3>${plans}
+      <section class="s" id="d-menu"><h3>套餐方案</h3>${plans}
         <p class="svc">服務費：${esc(s.svc || '待補')}</p></section>
       <section class="s"><h3>店家菜單照片</h3>
         ${s.menuImg ? `<img class="menu-img" src="${esc(s.menuImg)}" alt="${esc(s.name)} 菜單" loading="lazy">` : '<p class="muted">菜單照片待店家提供。</p>'}</section>
@@ -399,6 +409,8 @@ dl.info dd { margin: 0; }
     dlg.showModal();
     dlg.scrollTop = 0;
     history.pushState({ shop: id }, '', `#${id}`);
+    const toMenu = () => { if (focus === 'menu') $('#d-menu').scrollIntoView(); };
+    toMenu();
 
     loadPlace(s.id).then((g) => {
       if (!g || !dlg.open || $('#d-title').textContent !== s.name) return;
@@ -408,6 +420,7 @@ dl.info dd { margin: 0; }
           <div class="frame"><img src="${photoSrc(p, 1000)}" alt="${esc(s.name)} 照片 ${i + 1}" loading="lazy"></div>
           <figcaption>${authorsHtml(p)}</figcaption></figure>`).join('')}</div>
         <p class="g-note">以上照片由 Google 地圖使用者提供，對應地點：${esc(g.matchedName)}${g.pinned ? '' : '（自動比對，待確認）'}</p>`;
+      toMenu();
     });
   }
   function closeDetail() { if (dlg.open) dlg.close(); }
@@ -419,6 +432,8 @@ dl.info dd { margin: 0; }
     if (id && shops.some((s) => s.id === id)) { if (!dlg.open) openDetail(id); } else closeDetail();
   });
   $('#list').addEventListener('click', (e) => {
+    const m = e.target.closest('.menu-link');
+    if (m) return openDetail(m.dataset.id, 'menu');
     const b = e.target.closest('.open');
     if (b) openDetail(b.dataset.id);
   });
