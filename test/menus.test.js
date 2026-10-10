@@ -62,11 +62,18 @@ async function run(fn, opts) {
   delete process.env.UPLOAD_PASSWORD;
   const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
 
-  // 沒設上傳密碼：可以看，但不能上傳
+  // 沒設上傳密碼：不用密碼就能上傳、刪除
   let r = await run(menus, { query: { id: 'mizue' } });
-  assert.deepEqual(r.json(), { photos: [], storage: true, uploadEnabled: false });
+  assert.deepEqual(r.json(), { photos: [], storage: true, needsPassword: false, max: 30 });
   r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg' }, body: jpg });
-  assert.equal(r.statusCode, 403);
+  assert.equal(r.statusCode, 201);
+  r = await run(menus, { method: 'DELETE', query: { id: 'mizue', path: r.json().path } });
+  assert.equal(r.statusCode, 200);
+  // 每家店最多 30 張
+  for (let i = 0; i < 30; i++) store.set(`menus/mizue/f${i}.jpg`, { pathname: `menus/mizue/f${i}.jpg`, uploadedAt: new Date() });
+  r = await run(menus, { method: 'POST', query: { id: 'mizue' }, headers: { 'content-type': 'image/jpeg' }, body: jpg });
+  assert.equal(r.statusCode, 409);
+  store.clear();
 
   process.env.UPLOAD_PASSWORD = 'sushi123';
   // 網站密碼鎖未啟用，也不影響上傳密碼
@@ -96,7 +103,7 @@ async function run(fn, opts) {
   const path = r.json().path;
   assert.match(path, /^menus\/mizue\/\d+-rand\.jpg$/);
   r = await run(menus, { query: { id: 'mizue' }, headers: { ...up('sushi123') } });
-  assert.equal(r.json().uploadEnabled, true);
+  assert.equal(r.json().needsPassword, true);
   assert.equal(r.json().photos[0].path, path);
   r = await run(menus, { query: { id: 'blu-koi' } });
   assert.equal(r.json().photos.length, 0, '其他店不應看到這張');

@@ -566,7 +566,9 @@ dl.info dd { margin: 0; }
   const savedPw = () => { try { return localStorage.getItem(PW_KEY) || ''; } catch { return ''; } };
   const savePw = (v) => { try { v ? localStorage.setItem(PW_KEY, v) : localStorage.removeItem(PW_KEY); } catch { /* 無痕模式 */ } };
   let sessionPw = '';
+  let needsPassword = false;
   async function ownerFetch(url, opts, retry = true) {
+    if (!needsPassword) return fetch(url, opts);
     let pw = sessionPw || savedPw();
     if (!pw) {
       pw = (prompt('請輸入上傳密碼') || '').trim();
@@ -594,7 +596,8 @@ dl.info dd { margin: 0; }
     } catch { /* 靜態預覽時沒有 API */ }
     if (!dlg.open || current !== s || !box.isConnected) return;
     if (!d) { box.innerHTML = s.menuImg ? '' : '<p class="muted">菜單照片待提供。</p>'; return; }
-    sets.m = d.photos.map((p) => ({ thumb: mineSrc(p.path), full: mineSrc(p.path), caption: `菜單照片・${fmtDate(p.uploadedAt)} 上傳`, path: d.uploadEnabled ? p.path : '' }));
+    needsPassword = Boolean(d.needsPassword);
+    sets.m = d.photos.map((p) => ({ thumb: mineSrc(p.path), full: mineSrc(p.path), caption: `菜單照片・${fmtDate(p.uploadedAt)} 上傳`, path: p.path }));
     const grid = sets.m.length
       ? `<div class="gphotos">${sets.m.map((p, i) => `<figure>
           <a class="frame zoomable" data-set="m" data-i="${i}" href="${p.full}"><img src="${p.thumb}" alt="${esc(s.name)} 菜單照片 ${i + 1}，點擊放大" loading="lazy"></a>
@@ -602,7 +605,6 @@ dl.info dd { margin: 0; }
       : (s.menuImg ? '' : '<p class="muted">還沒有菜單照片。</p>');
     let tools = '';
     if (!d.storage) tools = '<p class="g-note">尚未連接照片儲存空間（Vercel Blob），連接後就能上傳菜單照片。</p>';
-    else if (!d.uploadEnabled) tools = '<p class="g-note">設定上傳密碼（UPLOAD_PASSWORD）後，就能在這裡上傳菜單照片。</p>';
     else tools = `<div class="upload">
         <button type="button" class="upload-btn" id="up-btn">＋ 新增菜單照片</button>
         <input type="file" id="up-file" accept="image/*" multiple hidden>

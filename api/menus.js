@@ -1,11 +1,13 @@
 // 你上傳的菜單照片，存在 Vercel Blob（私人儲存空間，不公開）。
 // GET    /api/menus?id=店家id              → 列出這家店的菜單照片
-// POST   /api/menus?id=店家id   (圖片內容) → 上傳一張（需要上傳密碼）
-// DELETE /api/menus?id=店家id&path=...      → 刪除一張（需要上傳密碼）
+// POST   /api/menus?id=店家id   (圖片內容) → 上傳一張
+// DELETE /api/menus?id=店家id&path=...      → 刪除一張
+// 有設定 UPLOAD_PASSWORD 時，上傳與刪除需要密碼；沒設定時任何人都能上傳（目前的個人使用模式）。
 const { list, put, del } = require('@vercel/blob');
 const { restaurants } = require('../public/data/restaurants.json');
 const { isOwner, uploadPassword } = require('./_lib/auth');
 
+const MAX_PER_SHOP = 30; // 每家店最多幾張，避免被亂傳塞爆空間
 const MAX_BYTES = 4 * 1024 * 1024; // Vercel 函式單次上限約 4.5MB；瀏覽器會先壓縮到這以下
 const TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
@@ -41,26 +43,27 @@ module.exports = async (req, res) => {
   const id = String(req.query.id || '');
   if (!restaurants.some((r) => r.id === id)) return send(res, 404, { error: 'unknown_restaurant' });
   const prefix = `menus/${id}/`;
-  const uploadEnabled = Boolean(uploadPassword());
+  const needsPassword = Boolean(uploadPassword());
 
   try {
     if (req.method === 'GET') {
-      if (!hasStorage()) return send(res, 200, { photos: [], storage: false, uploadEnabled });
+      if (!hasStorage()) return send(res, 200, { photos: [], storage: false, needsPassword });
       const { blobs } = await list({ prefix, limit: 100 });
       const photos = blobs
         .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
         .map((b) => ({ path: b.pathname, uploadedAt: b.uploadedAt }));
-      return send(res, 200, { photos, storage: true, uploadEnabled });
+      return send(res, 200, { photos, storage: true, needsPassword, max: MAX_PER_SHOP });
     }
 
     if (req.method === 'POST' || req.method === 'DELETE') {
-      if (!uploadEnabled) return send(res, 403, { error: 'no_password', hint: '請先在 Vercel 設定環境變數 UPLOAD_PASSWORD（上傳密碼），設定後才能上傳。' });
-      if (!isOwner(req)) return send(res, 401, { error: 'unauthorized', hint: '上傳密碼不正確。' });
+      if (needsPassword && !isOwner(req)) return send(res, 401, { error: 'unauthorized', hint: '上傳密碼不正確。' });
     }
 
     if (req.method === 'POST') {
       const type = String(req.headers['content-type'] || '').split(';')[0].trim();
       if (!TYPES[type]) return send(res, 415, { error: 'bad_type', hint: '只接受 JPG、PNG、WebP 圖片。' });
+      const { blobs } = await list({ prefix, limit: 100 });
+      if (blobs.length >= MAX_PER_SHOP) return send(res, 409, { error: 'full', hint: `每家店最多 ${MAX_PER_SHOP} 張，請先刪除不需要的照片。` });
       const body = await readBody(req, MAX_BYTES);
       if (!body.length) return send(res, 400, { error: 'empty' });
       const blob = await put(`${prefix}${Date.now()}.${TYPES[type]}`, body, {
