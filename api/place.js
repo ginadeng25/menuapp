@@ -4,7 +4,10 @@ const { restaurants } = require('../public/data/restaurants.json');
 const { call, apiKey, hint } = require('./_lib/google');
 
 const FIELDS = ['id', 'displayName', 'formattedAddress', 'googleMapsUri', 'photos'];
-const MAX_PHOTOS = 6;
+// 官網與價位屬較高的計費等級，只在使用者點開店家時才查（detail=1）。
+const DETAIL_FIELDS = [...FIELDS, 'websiteUri', 'priceRange'];
+
+const money = (m) => (m && m.units ? Number(m.units) : null);
 
 function send(res, status, data, cache = 'no-store') {
   res.statusCode = status;
@@ -13,18 +16,18 @@ function send(res, status, data, cache = 'no-store') {
   res.end(JSON.stringify(data));
 }
 
-async function findPlace(r) {
+async function findPlace(r, fields) {
   // 已確認的 Place ID 可以長期保存（Google 允許），直接用它查詢；否則以店名＋地址搜尋。
   if (r.placeId) {
     return call(`/places/${encodeURIComponent(r.placeId)}`, {
-      fieldMask: FIELDS.join(','),
+      fieldMask: fields.join(','),
       query: { languageCode: 'zh-TW', regionCode: 'TW' },
     });
   }
   const textQuery = [r.name, r.addr || `${r.city}${r.area}`].filter(Boolean).join(' ');
   const data = await call('/places:searchText', {
     method: 'POST',
-    fieldMask: FIELDS.map((f) => `places.${f}`).join(','),
+    fieldMask: fields.map((f) => `places.${f}`).join(','),
     body: { textQuery, languageCode: 'zh-TW', regionCode: 'TW', pageSize: 1 },
   });
   return (data.places || [])[0] || null;
@@ -35,8 +38,9 @@ module.exports = async (req, res) => {
   const r = restaurants.find((x) => x.id === req.query.id);
   if (!r) return send(res, 404, { error: 'unknown_restaurant' });
 
+  const detail = req.query.detail === '1';
   try {
-    const place = await findPlace(r);
+    const place = await findPlace(r, detail ? DETAIL_FIELDS : FIELDS);
     if (!place) return send(res, 200, { found: false });
     send(
       res,
@@ -48,8 +52,12 @@ module.exports = async (req, res) => {
         matchedName: (place.displayName && place.displayName.text) || '',
         matchedAddress: place.formattedAddress || '',
         mapsUrl: place.googleMapsUri || '',
+        website: place.websiteUri || '',
+        priceRange: place.priceRange
+          ? { start: money(place.priceRange.startPrice), end: money(place.priceRange.endPrice) }
+          : null,
         // 照片名稱會過期，不可長期保存，所以每次即時查詢；只在瀏覽器短暫快取。
-        photos: (place.photos || []).slice(0, MAX_PHOTOS).map((p) => ({
+        photos: (place.photos || []).slice(0, detail ? 10 : 1).map((p) => ({
           name: p.name,
           width: p.widthPx,
           height: p.heightPx,

@@ -60,6 +60,20 @@ function mockFetch(handler) {
   assert.match(JSON.parse(c.opts.body).textQuery, /Mizue .*敦化北路139號/);
   assert.ok(!res.body.includes('test-key'), '金鑰不可出現在回應中');
 
+  // 卡片只要 1 張照片、不查官網；點開店家（detail=1）才查官網與價位，最多 10 張
+  assert.equal(d.photos.length, 1);
+  assert.ok(!c.opts.headers['X-Goog-FieldMask'].includes('websiteUri'));
+  mockFetch(() => [200, { places: [{
+    id: 'PID1', displayName: { text: 'Mizue' }, websiteUri: 'https://mizue.example',
+    priceRange: { startPrice: { currencyCode: 'TWD', units: '8000' } },
+    photos: Array.from({ length: 12 }, (_, i) => ({ name: `places/PID1/photos/P${i}` })),
+  }] }]);
+  const full = (await run(place, { id: 'mizue', detail: '1' })).json();
+  assert.equal(full.photos.length, 10);
+  assert.equal(full.website, 'https://mizue.example');
+  assert.deepEqual(full.priceRange, { start: 8000, end: null });
+  assert.match(calls.at(-1).opts.headers['X-Goog-FieldMask'], /places\.websiteUri,places\.priceRange/);
+
   // Google 錯誤 → 502 並附中文提示
   mockFetch(() => [403, { error: { status: 'PERMISSION_DENIED', message: 'Places API (New) has not been used in project 123 before or it is disabled.' } }]);
   res = await run(place, { id: 'mizue' });
