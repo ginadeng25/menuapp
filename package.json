@@ -1,0 +1,9 @@
+{
+  "name": "menuapp",
+  "private": true,
+  "description": "雙北高級日料菜單：手機版餐廳菜單瀏覽網站",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node test/api.test.js"
+  }
+}

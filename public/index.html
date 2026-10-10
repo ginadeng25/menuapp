@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>雙北高級日料菜單</title>
+<meta name="description" content="台北、新北高級日本料理的套餐方案與價位，可依料理類型、價位、地區篩選。">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f4f0e6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16150f" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&family=Noto+Serif+TC:wght@500;600&family=Shippori+Mincho:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f4f0e6;
+  --paper-2: #ebe5d7;
+  --ink: #23211c;
+  --ink-2: #5f5a50;
+  --ink-3: #8c8679;
+  --rule: #d6cebd;
+  --ai: #2a4867;        /* 藍染 */
+  --hinoki: #a87b3f;    /* 檜木 */
+  --veil: rgba(22, 21, 15, .45);
+  --serif: "Shippori Mincho", "Noto Serif TC", "Songti TC", serif;
+  --sans: "Noto Sans TC", -apple-system, "PingFang TC", sans-serif;
+  --gutter: 20px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #16150f;
+    --paper-2: #211f18;
+    --ink: #ebe5d6;
+    --ink-2: #b4ad9e;
+    --ink-3: #847d70;
+    --rule: #39352b;
+    --ai: #92b1d4;
+    --hinoki: #d0a466;
+    --veil: rgba(0, 0, 0, .6);
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 15px/1.75 var(--sans);
+  letter-spacing: .02em;
+}
+a { color: var(--ai); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+button { font: inherit; color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 var(--gutter); }
+
+/* 頂部 */
+header.top { padding-top: 56px; padding-bottom: 28px; }
+.eyebrow { margin: 0 0 14px; font-size: 12px; letter-spacing: .3em; color: var(--hinoki); }
+h1 {
+  margin: 0;
+  font: 600 clamp(30px, 8vw, 44px)/1.3 var(--serif);
+  letter-spacing: .08em;
+}
+.lede { margin: 16px 0 0; max-width: 34em; color: var(--ink-2); }
+.pending {
+  display: inline-block; margin-top: 18px; padding: 2px 0;
+  border-bottom: 1px solid var(--hinoki);
+  font-size: 13px; color: var(--ink-2);
+}
+.pending::before { content: "※ "; color: var(--hinoki); }
+
+/* 置頂篩選列 */
+.filters {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.filters .wrap { padding-top: 12px; padding-bottom: 10px; }
+.search {
+  width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid var(--rule);
+  background: transparent; color: var(--ink); font: inherit; font-size: 16px; border-radius: 0;
+  outline: none;
+}
+.search:focus { border-bottom-color: var(--ai); }
+.search::placeholder { color: var(--ink-3); }
+.row { display: flex; align-items: baseline; gap: 14px; margin-top: 8px; }
+.row-label { flex: none; width: 2.4em; font-size: 12px; color: var(--ink-3); letter-spacing: .15em; }
+.chips { display: flex; gap: 2px 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; padding: 3px 0; border: 0; background: none; cursor: pointer;
+  font-size: 14px; color: var(--ink-2); border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.chip:focus-visible { outline: 1px solid var(--ai); outline-offset: 3px; }
+
+/* 結果 */
+.status { display: flex; justify-content: space-between; gap: 12px; margin: 22px 0 6px; font-size: 13px; color: var(--ink-3); }
+.status button { border: 0; background: none; padding: 0; color: var(--ai); cursor: pointer; font-size: 13px; }
+.list { display: grid; grid-template-columns: 1fr; gap: 0 40px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 720px) { .list { grid-template-columns: 1fr 1fr; } }
+.card { position: relative; padding: 26px 0 30px; border-bottom: 1px solid var(--rule); }
+.cover {
+  position: relative; aspect-ratio: 3 / 2; overflow: hidden;
+  background: var(--paper-2);
+}
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ph {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+}
+.ph-name {
+  writing-mode: vertical-rl; font: 500 clamp(22px, 6vw, 28px)/1.4 var(--serif);
+  letter-spacing: .25em; color: var(--ink-2); max-height: 82%; overflow: hidden;
+}
+.ph-note {
+  position: absolute; left: 12px; bottom: 10px; font-size: 11px; color: var(--ink-3); letter-spacing: .1em;
+}
+.credit {
+  position: absolute; right: 0; bottom: 0; z-index: 2; max-width: 90%;
+  margin: 0; padding: 3px 8px; font-size: 11px; line-height: 1.5;
+  background: rgba(15, 14, 10, .62); color: #eee8da;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.credit a { color: inherit; }
+.meta { margin: 16px 0 2px; font-size: 12px; letter-spacing: .15em; color: var(--hinoki); }
+.card h2 { margin: 0; font: 600 22px/1.45 var(--serif); letter-spacing: .06em; }
+.open {
+  padding: 0; border: 0; background: none; cursor: pointer; text-align: left;
+  font: inherit; letter-spacing: inherit;
+}
+.open::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.open:focus-visible { outline: none; }
+.card:has(.open:focus-visible) { outline: 1px solid var(--ai); outline-offset: 4px; }
+.price { margin: 4px 0 0; font-size: 15px; }
+.price small { color: var(--ink-3); font-size: 12px; }
+.award { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.match { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--ai); font-size: 13px; color: var(--ink-2); }
+.empty { padding: 60px 0; text-align: center; color: var(--ink-3); }
+
+footer { padding-top: 40px; padding-bottom: 64px; font-size: 12px; color: var(--ink-3); }
+footer p { margin: 0 0 6px; }
+
+/* 詳細頁 */
+dialog {
+  width: 100%; max-width: 640px; height: 100%; max-height: 100%;
+  margin: 0 0 0 auto; padding: 0; border: 0;
+  background: var(--paper); color: var(--ink);
+}
+dialog::backdrop { background: var(--veil); }
+@media (min-width: 720px) { dialog { border-left: 1px solid var(--rule); } }
+.d-bar {
+  position: sticky; top: 0; z-index: 3; display: flex; justify-content: flex-end;
+  padding: 10px var(--gutter); background: var(--paper); border-bottom: 1px solid var(--rule);
+}
+.close { border: 0; background: none; padding: 4px 0; cursor: pointer; font-size: 14px; color: var(--ink-2); letter-spacing: .15em; }
+.d-body { padding: 0 var(--gutter) 64px; }
+.d-head { padding: 28px 0 22px; }
+.d-head h2 { margin: 6px 0 4px; font: 600 28px/1.4 var(--serif); letter-spacing: .06em; }
+.d-head .award { font-size: 14px; }
+.gallery { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gutter); margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); scrollbar-width: thin; }
+.gallery figure { flex: none; width: 82%; margin: 0; scroll-snap-align: start; }
+.gallery .frame { aspect-ratio: 3 / 2; background: var(--paper-2); overflow: hidden; }
+.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery figcaption { margin-top: 4px; font-size: 11px; color: var(--ink-3); }
+.gallery figcaption a { color: inherit; }
+.g-note { margin: 8px 0 0; font-size: 11px; color: var(--ink-3); }
+section.s { padding: 26px 0 4px; border-top: 1px solid var(--rule); margin-top: 26px; }
+.s h3 { margin: 0 0 14px; font: 600 15px/1.5 var(--serif); letter-spacing: .3em; color: var(--ink-2); }
+.plans { margin: 0; padding: 0; list-style: none; }
+.plan { display: grid; grid-template-columns: 1fr auto; gap: 0 16px; padding: 12px 0; border-bottom: 1px dotted var(--rule); transition: opacity .2s; }
+.plan:last-child { border-bottom: 0; }
+.plan.dim { opacity: .35; }
+.plan-n { font-weight: 500; }
+.plan-note { grid-column: 1; font-size: 13px; color: var(--ink-3); }
+.plan-p { grid-row: 1 / span 2; grid-column: 2; align-self: center; font: 500 17px/1.4 var(--serif); white-space: nowrap; }
+.plan-p small { font: 400 11px var(--sans); color: var(--ink-3); }
+.svc { margin: 12px 0 0; font-size: 13px; color: var(--ink-2); }
+.muted { color: var(--ink-3); font-size: 14px; }
+.menu-img { width: 100%; display: block; }
+dl.info { display: grid; grid-template-columns: 4.5em 1fr; gap: 8px 12px; margin: 0; font-size: 14px; }
+dl.info dt { color: var(--ink-3); letter-spacing: .1em; }
+dl.info dd { margin: 0; }
+.maps {
+  display: block; margin-top: 26px; padding: 14px 0; text-align: center;
+  border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink);
+  color: var(--ink); text-decoration: none; letter-spacing: .15em; font-size: 14px;
+}
+.maps::after { content: " ↗"; color: var(--hinoki); }
+.d-foot { margin-top: 22px; font-size: 12px; color: var(--ink-3); }
+.attr-google { font-size: 11px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <p class="eyebrow">TAIPEI · NEW TAIPEI</p>
+  <h1>雙北高級日料菜單</h1>
+  <p class="lede">把台北、新北高級日本料理的套餐方案整理成同一種格式，方便比較價位、類型與地區。高級日料多為無菜單料理，因此以套餐方案呈現。</p>
+  <p class="pending">目前資料整理自公開報導，全部待店家確認，價格可能已過時。</p>
+</header>
+
+<div class="filters" role="search">
+  <div class="wrap">
+    <input class="search" id="q" type="search" placeholder="搜尋店名、地區、套餐名" aria-label="搜尋店名、地區、套餐名" autocomplete="off">
+    <div class="row"><span class="row-label" id="l-type">類型</span><div class="chips" id="f-type" role="group" aria-labelledby="l-type"></div></div>
+    <div class="row"><span class="row-label" id="l-tier">價位</span><div class="chips" id="f-tier" role="group" aria-labelledby="l-tier"></div></div>
+    <div class="row"><span class="row-label" id="l-city">地區</span><div class="chips" id="f-city" role="group" aria-labelledby="l-city"></div></div>
+  </div>
+</div>
+
+<main class="wrap">
+  <div class="status"><span id="count" aria-live="polite"></span><button id="reset" type="button" hidden>清除條件</button></div>
+  <ul class="list" id="list"></ul>
+</main>
+
+<footer class="wrap">
+  <p>價位以每人套餐價（新台幣、未含服務費）計：未滿 3,000／3,000–6,000／超過 6,000。一家店只要任一套餐落在該級距就會列出。</p>
+  <p>店家照片來自 Google 地圖（經 Google Places API 即時取得），並標示拍攝者；無照片的店家以店名代替。</p>
+  <p id="updated"></p>
+</footer>
+
+<dialog id="detail" aria-labelledby="d-title">
+  <div class="d-bar"><button class="close" type="button" id="close">關閉 ✕</button></div>
+  <div class="d-body" id="d-body"></div>
+</dialog>
+
+<script>
+(() => {
+  const TIERS = [
+    { key: 'low', label: '3,000 以下', test: (lo, hi) => lo < 3000 },
+    { key: 'mid', label: '3,000–6,000', test: (lo, hi) => hi >= 3000 && lo <= 6000 },
+    { key: 'high', label: '6,000 以上', test: (lo, hi) => hi > 6000 },
+  ];
+  const CITIES = ['台北', '新北'];
+  const state = { q: '', type: '', tier: '', city: '' };
+  let shops = [];
+
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const money = (n) => Number(n).toLocaleString('en-US');
+  const planRange = (p) => [p.p, p.p2 ?? p.p];
+  const planPrice = (p) => p.p2 ? `${money(p.p)}–${money(p.p2)}` : money(p.p);
+  const tierOf = (key) => TIERS.find((t) => t.key === key);
+  const planFits = (p, tier) => !tier || tier.test(...planRange(p));
+  const place = (s) => [s.city, s.area].filter(Boolean).join(' ');
+
+  function priceRange(s) {
+    if (!s.plans.length) return '';
+    const lo = Math.min(...s.plans.map((p) => p.p));
+    const hi = Math.max(...s.plans.map((p) => p.p2 ?? p.p));
+    return lo === hi ? `NT$ ${money(lo)}` : `NT$ ${money(lo)} – ${money(hi)}`;
+  }
+  function mapsUrl(s, g) {
+    if (g && g.mapsUrl) return g.mapsUrl;
+    const q = encodeURIComponent([s.name, s.addr || place(s)].join(' '));
+    return `https://www.google.com/maps/search/?api=1&query=${q}${s.placeId ? `&query_place_id=${encodeURIComponent(s.placeId)}` : ''}`;
+  }
+
+  /* ---------- Google 地圖照片（經伺服端函式，金鑰不在前端） ---------- */
+  const placeCache = new Map();
+  let placesOff = false;
+  function loadPlace(id) {
+    if (placesOff) return Promise.resolve(null);
+    if (!placeCache.has(id)) {
+      placeCache.set(id, fetch(`/api/place?id=${encodeURIComponent(id)}`)
+        .then((r) => {
+          if (r.status === 503 || r.status === 404 && !r.headers.get('content-type')?.includes('json')) placesOff = true;
+          return r.ok ? r.json() : null;
+        })
+        .then((d) => (d && d.found ? d : null))
+        .catch(() => null));
+    }
+    return placeCache.get(id);
+  }
+  const photoSrc = (p, w) => `/api/photo?name=${encodeURIComponent(p.name)}&w=${w}`;
+  function authorsHtml(p) {
+    const a = (p.authors || []).map((x) => x.uri ? `<a href="${esc(x.uri)}" target="_blank" rel="noopener">${esc(x.name)}</a>` : esc(x.name));
+    return `${a.length ? `照片：${a.join('、')}` : '照片'}　Google 地圖`;
+  }
+
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      io.unobserve(e.target);
+      fillCover(e.target);
+    }
+  }, { rootMargin: '300px' }) : null;
+
+  async function fillCover(cover) {
+    const s = shops.find((x) => x.id === cover.dataset.id);
+    if (!s || s.img) return;
+    const g = await loadPlace(s.id);
+    const p = g && g.photos[0];
+    if (!p) return;
+    const img = new Image();
+    img.alt = `${s.name}（Google 地圖照片）`;
+    img.decoding = 'async';
+    img.onload = () => {
+      cover.querySelector('.ph')?.remove();
+      cover.prepend(img);
+      const c = document.createElement('p');
+      c.className = 'credit';
+      c.innerHTML = authorsHtml(p);
+      cover.append(c);
+    };
+    img.src = photoSrc(p, 900);
+  }
+
+  /* ---------- 篩選 ---------- */
+  function chips(el, key, options) {
+    el.innerHTML = [['', '全部'], ...options].map(([v, label]) =>
+      `<button type="button" class="chip" data-v="${esc(v)}" aria-pressed="${state[key] === v}">${esc(label)}</button>`).join('');
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('.chip');
+      if (!b) return;
+      state[key] = state[key] === b.dataset.v ? '' : b.dataset.v;
+      syncChips();
+      render();
+    });
+  }
+  function syncChips() {
+    for (const [id, key] of [['#f-type', 'type'], ['#f-tier', 'tier'], ['#f-city', 'city']]) {
+      $(id).querySelectorAll('.chip').forEach((b) => b.setAttribute('aria-pressed', String(state[key] === b.dataset.v)));
+    }
+  }
+  function matches(s) {
+    if (state.type && s.type !== state.type) return false;
+    if (state.city && s.city !== state.city) return false;
+    const tier = tierOf(state.tier);
+    if (tier && !s.plans.some((p) => planFits(p, tier))) return false;
+    if (state.q) {
+      const hay = [s.name, s.city, s.area, s.addr, s.type, ...s.plans.map((p) => p.n)].join(' ').toLowerCase();
+      if (!state.q.toLowerCase().split(/\s+/).filter(Boolean).every((w) => hay.includes(w))) return false;
+    }
+    return true;
+  }
+
+  /* ---------- 卡片 ---------- */
+  function card(s) {
+    const tier = tierOf(state.tier);
+    const fit = tier ? s.plans.filter((p) => planFits(p, tier)) : [];
+    const cover = s.img
+      ? `<img src="${esc(s.img)}" alt="${esc(s.name)}" loading="lazy">`
+      : `<div class="ph"><span class="ph-name">${esc(s.name)}</span><span class="ph-note">照片待店家提供</span></div>`;
+    return `<li class="card">
+      <div class="cover" data-id="${esc(s.id)}">${cover}</div>
+      <p class="meta">${esc(s.type)}　${esc(place(s))}</p>
+      <h2><button type="button" class="open" data-id="${esc(s.id)}">${esc(s.name)}</button></h2>
+      <p class="price">${priceRange(s) ? `${priceRange(s)} <small>／人・未含服務費</small>` : '<small>價格待補</small>'}</p>
+      ${s.award ? `<p class="award">${esc(s.award)}</p>` : ''}
+      ${fit.length ? `<p class="match">符合：${fit.map((p) => `${esc(p.n)} ${planPrice(p)}`).join('、')}</p>` : ''}
+    </li>`;
+  }
+  function render() {
+    const list = shops.filter(matches);
+    $('#list').innerHTML = list.length ? list.map(card).join('') : '<li class="empty">沒有符合條件的店家，試著放寬篩選。</li>';
+    $('#count').textContent = `${list.length} 家店`;
+    $('#reset').hidden = !(state.q || state.type || state.tier || state.city);
+    document.querySelectorAll('.cover').forEach((c) => (io ? io.observe(c) : fillCover(c)));
+  }
+
+  /* ---------- 詳細頁 ---------- */
+  const dlg = $('#detail');
+  function openDetail(id) {
+    const s = shops.find((x) => x.id === id);
+    if (!s) return;
+    const tier = tierOf(state.tier);
+    const plans = s.plans.length
+      ? `<ul class="plans">${s.plans.map((p) => `<li class="plan${tier && !planFits(p, tier) ? ' dim' : ''}">
+            <span class="plan-n">${esc(p.n)}</span>
+            <span class="plan-note">${esc(p.note || '')}</span>
+            <span class="plan-p">NT$ ${planPrice(p)} <small>／人</small></span>
+          </li>`).join('')}</ul>`
+      : '<p class="muted">價格待補。</p>';
+    const info = [
+      ['地址', s.addr || '待補'],
+      ['時間', s.hours || '待補'],
+      ['電話', s.tel ? `<a href="tel:${esc(s.tel.replace(/[^0-9+]/g, ''))}">${esc(s.tel)}</a>` : '待補', true],
+      ['資料來源', `${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.src)}</a>` : esc(s.src || '待補')}${s.date ? `（${esc(s.date)}）` : ''}${s.url ? '' : '<br><span class="muted">原文連結待補</span>'}`, true],
+    ];
+    $('#d-body').innerHTML = `
+      <div class="d-head">
+        <p class="meta">${esc(s.type)}　${esc(place(s))}</p>
+        <h2 id="d-title">${esc(s.name)}</h2>
+        ${s.award ? `<p class="award">${esc(s.award)}</p>` : ''}
+        <p class="pending">資料待店家確認</p>
+      </div>
+      <div id="d-gallery"></div>
+      <section class="s"><h3>套餐方案</h3>${plans}
+        <p class="svc">服務費：${esc(s.svc || '待補')}</p></section>
+      <section class="s"><h3>店家菜單照片</h3>
+        ${s.menuImg ? `<img class="menu-img" src="${esc(s.menuImg)}" alt="${esc(s.name)} 菜單" loading="lazy">` : '<p class="muted">菜單照片待店家提供。</p>'}</section>
+      <section class="s"><h3>店家資訊</h3>
+        <dl class="info">${info.map(([k, v, raw]) => `<dt>${k}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>
+        <a class="maps" id="d-maps" href="${esc(mapsUrl(s))}" target="_blank" rel="noopener">在 Google 地圖看照片與菜單</a>
+        <p class="d-foot">價格為每人套餐價（新台幣），未含服務費。資料整理自公開報導，可能已過時，請以店家公告為準。</p>
+      </section>`;
+    dlg.showModal();
+    dlg.scrollTop = 0;
+    history.pushState({ shop: id }, '', `#${id}`);
+
+    loadPlace(s.id).then((g) => {
+      if (!g || !dlg.open || $('#d-title').textContent !== s.name) return;
+      $('#d-maps').href = mapsUrl(s, g);
+      if (!g.photos.length) return;
+      $('#d-gallery').innerHTML = `<div class="gallery">${g.photos.map((p, i) => `<figure>
+          <div class="frame"><img src="${photoSrc(p, 1000)}" alt="${esc(s.name)} 照片 ${i + 1}" loading="lazy"></div>
+          <figcaption>${authorsHtml(p)}</figcaption></figure>`).join('')}</div>
+        <p class="g-note">以上照片由 Google 地圖使用者提供，對應地點：${esc(g.matchedName)}${g.pinned ? '' : '（自動比對，待確認）'}</p>`;
+    });
+  }
+  function closeDetail() { if (dlg.open) dlg.close(); }
+  dlg.addEventListener('close', () => { if (location.hash) history.replaceState(null, '', location.pathname + location.search); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) closeDetail(); });
+  $('#close').addEventListener('click', closeDetail);
+  window.addEventListener('popstate', () => {
+    const id = location.hash.slice(1);
+    if (id && shops.some((s) => s.id === id)) { if (!dlg.open) openDetail(id); } else closeDetail();
+  });
+  $('#list').addEventListener('click', (e) => {
+    const b = e.target.closest('.open');
+    if (b) openDetail(b.dataset.id);
+  });
+
+  /* ---------- 啟動 ---------- */
+  $('#q').addEventListener('input', (e) => { state.q = e.target.value.trim(); render(); });
+  $('#reset').addEventListener('click', () => {
+    Object.assign(state, { q: '', type: '', tier: '', city: '' });
+    $('#q').value = '';
+    syncChips();
+    render();
+  });
+
+  fetch('/data/restaurants.json')
+    .then((r) => r.json())
+    .then((data) => {
+      shops = data.restaurants;
+      const types = [...new Set(shops.map((s) => s.type))];
+      chips($('#f-type'), 'type', types.map((t) => [t, t]));
+      chips($('#f-tier'), 'tier', TIERS.map((t) => [t.key, t.label]));
+      chips($('#f-city'), 'city', CITIES.map((c) => [c, c]));
+      $('#updated').textContent = `資料整理日期：${data.updated}`;
+      render();
+      const id = location.hash.slice(1);
+      if (id && shops.some((s) => s.id === id)) openDetail(id);
+    })
+    .catch(() => { $('#list').innerHTML = '<li class="empty">資料載入失敗，請重新整理。</li>'; });
+})();
+</script>
+</body>
+</html>
